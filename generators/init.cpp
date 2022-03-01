@@ -23,6 +23,7 @@
 #include "inverter_dyn.h"
 #include "sync_ctrl.h"
 #include "energy_storage.h"
+#include "sec_control.h"
 
 //Define defaults, since many use them and they aren't here yet
 EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
@@ -51,6 +52,7 @@ EXPORT CLASS *init(CALLBACKS *fntable, MODULE *module, int argc, char *argv[])
 	new inverter_dyn(module);
 	new sync_ctrl(module);
 	new energy_storage(module);
+	new sec_control(module);
 
 	/* always return the first class registered */
 	return diesel_dg::oclass;
