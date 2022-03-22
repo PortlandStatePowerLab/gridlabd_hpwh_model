@@ -108,3 +108,6 @@ validate.txt
 .libs/
 third_party/xerces*/*
 *.xcbkptlist
+
+# scratch is a folder for local work only
+scratch/*
