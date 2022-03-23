@@ -7,6 +7,8 @@
 #ifndef CBLOCK_H
 #define CBLOCK_H
 
+#include <math.h>
+
 /*
   Linear control block base class - This is the base class for linear blocks. All 
   control blocks inherit from this class. It expresses a first order linear transfer
@@ -113,7 +115,7 @@ class Cblock
   int setylimits(double ymin, double ymax);
 
   // Method for initializing state x given input u and output y
-  int init(double u, double y);
+  double init(double u, double y);
 
   // Method for getting the output
   double getoutput(double x,double u);
@@ -123,6 +125,9 @@ class Cblock
 
   // Method for updating state x
   double updatestate(double u, double dt);
+
+  // Method for getting state x
+  const double getstate();
 
   ~Cblock(void);
 };
@@ -154,7 +159,7 @@ class Cblock
     y = x + Kp*u,  ymin <= y <= ymax
 
 */
-class PIControl: Cblock
+class PIControl: public Cblock
 {
  public:
   PIControl();
@@ -194,7 +199,7 @@ class PIControl: Cblock
     y = x,  ymin <= y <= ymax
 
 */
-class Filter: Cblock
+class Filter: public Cblock
 {
  public:
   Filter();

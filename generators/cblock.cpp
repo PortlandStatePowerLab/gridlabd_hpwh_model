@@ -115,10 +115,20 @@ double Cblock::updatestate(double u,double dt)
   return x_n1;
 }
 
-int Cblock::init(double u, double y)
+double Cblock::init(double u, double y)
 {
-  double uout = y/(p_D[0] - p_C[0]*p_B[0]/p_A[0]);
-  p_x[0] = -p_B[0]/p_A[0]*uout;
+  double uout;
+  if(fabs(p_A[0]) < 1e-10) p_x[0] = y;
+  else {
+    uout = y/(p_D[0] - p_C[0]*p_B[0]/p_A[0]);
+    p_x[0] = -p_B[0]/p_A[0]*uout;
+  }
+  return p_x[0];
+}
+
+const double Cblock::getstate(void)
+{
+  return p_x[0];
 }
 
 // ------------------------------------

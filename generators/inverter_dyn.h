@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "cblock.h"
+
 #include "generators.h"
 
 EXPORT int isa_inverter_dyn(OBJECT *obj, char *classname);
@@ -261,9 +263,13 @@ public:
 
 	double kpv;			  // proportional gain and integral gain of voltage loop
 	double kiv;			  //
+
 	double mq;			  // mq is the Q-V droop gain, usually 0.05 pu
 	double E_max;		  // E_max and E_min are the maximum and minimum of the output of voltage controller
 	double E_min;		  //
+
+	PIControl QV_pi; // QV PI control block
+
 	double delta_w_droop; // delta mega from P-f droop
 	double delta_w_Pmax;  //
 	double delta_w_Pmin;  //
