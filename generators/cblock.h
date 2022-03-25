@@ -8,6 +8,16 @@
 #define CBLOCK_H
 
 #include <math.h>
+#include <algorithm>
+
+/*
+  DeltaModeStage - Stage in Delta mode
+*/
+typedef enum {
+  PREDICTOR, // Predictor update
+  CORRECTOR  // Corrector update
+}DeltaModeStage;
+
 
 /*
   Linear control block base class - This is the base class for linear blocks. All 
@@ -53,36 +63,29 @@
   Output:
    y = Cx + D*u,  ymin <= y <= ymax
 
-  State-update: (using Modified-Euler method)
+  State-update:
+    PREDICTOR (Forward Euler):
 
-   *** x within limits ***
+    \hat{x}_{n+1} = x_{n} + dt*dx_dt(x_{n},u_{n})
 
-   if xmin < x_n < xmax
-    px_{n+1} = x_{n} + dt*dx_dt_{n}
-    cx_{n+1}  = x_{n} + 0.5*dt*(dx_dt(x_{n}) + dx_dt(px_{n+1})
+    \hat{x}_{n+1} = max(xmin,min(\hat{x}_{n+1},xmax)
 
-    if x < xmin
-      x_{n+1} = xmin // Snap
-    elif x > xmax
-      x_{n+1} = xmax // Snap
-    else
-      x_{n+1} = cx_{n+1}
+    y_{n+1} = C\hat{x}_{n+1} + Du_{n}
 
-   *** x at limit ***
-   px_{n+1} = x_{n} + dt*dx_dt_{n} 
-   dx_dt_{n} = dx_dt(x_{n}) + dx_dt(px_{n+1})
+    y_{n+1} = max(ymin,min(y_{n+1},ymax)
 
-   if x at xmin
-     if dx_dt_{n} > 0
-       x_{n+1} = x_n + 0.5*dt*dx_dt_{n} // Release
-     else
-       x_{n+1} = xmin
-   else if x at xmax
-     if dx_dt_{n} < 0
-       x_{n+1} = x_n + 0.5*dt*dx_dt_{n} // Release
-     else
-       x_{n+1} = xmax
+    CORRECTOR (Trapezoidal):
 
+    x_{n+1} = x_{n} + 0.5*dt*(dx_dt(x_{n}) + dx_dt(\hat{x}_{n+1},u_{n+1})) 
+
+    x_{n+1} = max(xmin,min(x_{n+1},xmax)
+
+    y_{n+1} = Cx_{n+1} + Du_{n+1}
+
+    y_{n+1} = max(ymin,min(y_{n+1},ymax)
+
+    Note here that GridLab-D does a network solve after every predictor/corrector
+    call. So, during the corrector stage the input u is updated (u_{n+1})
 */ 
 class Cblock
 {
@@ -91,16 +94,23 @@ class Cblock
   double p_B[1]; /* B */
   double p_C[1]; /* C */
   double p_D[1]; /* D */
-  bool   p_xatmax,p_xatmin; /* Flags for max./min. limits */
-  double p_x[1]; /* State variable x */
+
+  double p_x[1];      /* State variable x */
+  double p_dxdt[1];   /* State derivative */
+  double p_xhat[1];   /* Predictor stage x */
+
   double p_xmax,p_xmin; /* Max./Min. limits on state X */
   double p_ymax,p_ymin; /* Max./Min. limits on output Y */
-  bool   p_hasxlimiter; /* Model has x limiter */
-  bool   p_hasylimiter; /* Model has y limiter */
-  bool   p_updatestatecalled; /* Has state been updated for this time-step */
+
   // p_order is kept for future extensions if and
   // when the order of the transfer function > 1
   int    p_order; /* order of the control block */
+
+  // Method for updating state x
+  double updatestate(double u, double dt,double xmin, double xmax, DeltaModeStage stage);
+
+  // Method for updating state x
+  double updatestate(double u, double dt,DeltaModeStage stage);
 
  public:
   Cblock();
@@ -118,16 +128,16 @@ class Cblock
   double init(double u, double y);
 
   // Method for getting the output
-  double getoutput(double x,double u);
+  double getoutput(double u,double dt,DeltaModeStage stage);
+
+  // Method for getting the ouput with limits specified
+  double getoutput(double u,double dt,double xmin, double xmax, double ymin, double ymax, DeltaModeStage stage);
 
   // Method for calculating the derivative xdot
   double getderivative(double x,double u);
 
-  // Method for updating state x
-  double updatestate(double u, double dt);
-
   // Method for getting state x
-  const double getstate();
+  const double getstate(DeltaModeStage stage);
 
   ~Cblock(void);
 };

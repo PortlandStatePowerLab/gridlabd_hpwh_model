@@ -3,10 +3,8 @@
 Cblock::Cblock(int order)
 {
   p_order = order;
-  p_hasxlimiter = false;
-  p_xatmax = p_xatmin = false;
-  p_hasylimiter = false;
-  p_updatestatecalled = false;
+  p_xmin  = p_ymin = -1000.0;
+  p_xmax  = p_ymax =  1000.0;
 }
 
 Cblock::Cblock(void)
@@ -39,8 +37,6 @@ int Cblock::setxlimits(double xmin,double xmax)
   p_xmin = xmin;
   p_xmax = xmax;
 
-  p_hasxlimiter = true;
-
   return 0;
 }
 
@@ -48,8 +44,6 @@ int Cblock::setylimits(double ymin,double ymax)
 {
   p_ymin = ymin;
   p_ymax = ymax;
-
-  p_hasylimiter = true;
 
   return 0;
 }
@@ -59,60 +53,56 @@ double Cblock::getderivative(double x, double u)
   return p_A[0]*x + p_B[0]*u;
 }
 
-double Cblock::getoutput(double x, double u)
+double Cblock::updatestate(double u,double dt,double xmin,double xmax,DeltaModeStage stage)
 {
-  double y;
-  y = p_C[0]*x + p_D[0]*u;
-  if(p_hasylimiter) {
-    if(y < p_ymin) y = p_ymin;
-    else if(y > p_ymax) y = p_ymax;
+  double x,dx_dt;
+
+  if(stage == PREDICTOR) {
+    p_dxdt[0] = getderivative(p_x[0],u);
+    x = p_x[0] + dt*p_dxdt[0];
+    x = std::max(xmin,std::min(x,xmax));
+    p_xhat[0] = x;
   }
+
+  if(stage == CORRECTOR) {
+    dx_dt = getderivative(p_xhat[0],u);
+    x     = p_x[0] + 0.5*dt*(p_dxdt[0] + dx_dt);
+    x = std::max(xmin,std::min(x,xmax));
+    p_x[0] = x;
+  }
+
+  return x;
+}
+
+double Cblock::updatestate(double u,double dt,DeltaModeStage stage)
+{
+  double x;
+
+  x = updatestate(u,dt,p_xmin,p_xmax,stage);
+
+  return x;
+}
+
+double Cblock::getoutput(double u,double dt,double xmin,double xmax,double ymin,double ymax,DeltaModeStage stage)
+{
+  double x,y;
+
+  x = updatestate(u,dt,xmin,xmax,stage);
+  
+  y = p_C[0]*x + p_D[0]*u;
+
+  y = std::max(ymin,std::min(y,ymax));
+
   return y;
 }
 
-double Cblock::updatestate(double u,double dt)
+double Cblock::getoutput(double u,double dt,DeltaModeStage stage)
 {
-  double x_n = p_x[0]; // State at time-step n
-  double x_n1;      // State at time-step n+1
-  double px_n1;     // predicted state with Euler approximation
-  double dpx_dtn1;  // Predicted derivate for state px_n1
-  double dx_dtn;     // Derivative at time-step n
+  double y;
 
-  dx_dtn = getderivative(x_n,u);
+  y = getoutput(u,dt,p_xmin,p_xmax,p_ymin,p_ymax,stage);
 
-  // Approximation for x_n1
-  px_n1 = x_n + dt*dx_dtn;
-
-  // Derivative
-  dpx_dtn1 = getderivative(px_n1,u);
-  dpx_dtn1 += dx_dtn;
-
-  if(p_xatmin) {
-    if(dpx_dtn1 > 0) { // Release
-      x_n1 = x_n + 0.5*dt*dpx_dtn1;
-    } else {
-      x_n1 = p_xmin;
-    }
-  } else if(p_xatmax) {
-    if(dpx_dtn1 < 0) { // Release
-      x_n1 = x_n + 0.5*dt*dpx_dtn1;
-    } else {
-      x_n1 = p_xmax;
-    }
-  } else {
-    x_n1 = x_n + 0.5*dt*dpx_dtn1;
-    if(x_n1 > p_xmax) {
-      x_n1 = p_xmax;
-      p_xatmax = true;
-    } else if(x_n1 < p_xmin) {
-      x_n1 = p_xmin;
-      p_xatmin = p_xmin;
-    }
-  }
-
-  p_x[0] = x_n1; // Update state
-    
-  return x_n1;
+  return y;
 }
 
 double Cblock::init(double u, double y)
@@ -123,12 +113,16 @@ double Cblock::init(double u, double y)
     uout = y/(p_D[0] - p_C[0]*p_B[0]/p_A[0]);
     p_x[0] = -p_B[0]/p_A[0]*uout;
   }
+
   return p_x[0];
 }
 
-const double Cblock::getstate(void)
+const double Cblock::getstate(DeltaModeStage stage)
 {
-  return p_x[0];
+  double x;
+  if(stage == PREDICTOR) x = p_xhat[0];
+  if(stage == CORRECTOR) x = p_x[0];
+  return x;
 }
 
 // ------------------------------------
