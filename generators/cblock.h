@@ -112,6 +112,9 @@ class Cblock
   // Method for updating state x
   double updatestate(double u, double dt,DeltaModeStage stage);
 
+  // Method for calculating the derivative xdot
+  double getderivative(double x,double u);
+
  public:
   Cblock();
   Cblock(int);
@@ -132,9 +135,6 @@ class Cblock
 
   // Method for getting the ouput with limits specified
   double getoutput(double u,double dt,double xmin, double xmax, double ymin, double ymax, DeltaModeStage stage);
-
-  // Method for calculating the derivative xdot
-  double getderivative(double x,double u);
 
   // Method for getting state x
   const double getstate(DeltaModeStage stage);
