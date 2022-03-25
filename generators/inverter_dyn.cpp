@@ -1945,7 +1945,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 						E_mag = E_min;
 					}
 
-					E_mag_QV = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,E_min,E_max,E_min,E_max,PREDICTOR);
+					E_mag_QV = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,PREDICTOR);
 					x_QV = QV_pi.getstate(PREDICTOR);
 					printf("Predictor: delta_time = %d E_mag = %lf,E_mag_QV = %lf,x = %lf, x_QV = %lf,diff = %lf\n",delta_time,E_mag,E_mag_QV,pred_state.V_ini,x_QV,E_mag-E_mag_QV);
 
@@ -2233,7 +2233,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 						E_mag = E_min;
 					}
 
-					E_mag_QV = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,E_min,E_max,E_min,E_max,CORRECTOR);
+					E_mag_QV = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,CORRECTOR);
 					x_QV = QV_pi.getstate(CORRECTOR);
 					printf("Corrector: delta_time = %d E_mag = %lf,E_mag_QV = %lf,x = %lf, x_QV = %lf,diff = %lf\n",delta_time,E_mag,E_mag_QV,next_state.V_ini,x_QV,E_mag-E_mag_QV);
 
