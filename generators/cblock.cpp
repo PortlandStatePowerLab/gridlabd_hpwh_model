@@ -105,7 +105,7 @@ double Cblock::getoutput(double u,double dt,DeltaModeStage stage)
   return y;
 }
 
-double Cblock::init(double u, double y)
+void Cblock::init(double u, double y)
 {
   double uout;
   if(fabs(p_A[0]) < 1e-10) p_x[0] = y;
@@ -113,8 +113,6 @@ double Cblock::init(double u, double y)
     uout = y/(p_D[0] - p_C[0]*p_B[0]/p_A[0]);
     p_x[0] = -p_B[0]/p_A[0]*uout;
   }
-
-  return p_x[0];
 }
 
 const double Cblock::getstate(DeltaModeStage stage)
@@ -199,7 +197,7 @@ int Filter::setconstants(double T)
 
   // Parameters for state-space representation
   // Transfer funtion is
-  // 1/(1 + sT) => (sKp + Ki)/s
+  // 1/(1 + sT)
   // In standard form, this will be
   // (s*0 + 1)/(sT + 1)
 

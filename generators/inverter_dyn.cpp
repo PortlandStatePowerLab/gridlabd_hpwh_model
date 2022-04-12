@@ -1693,8 +1693,6 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 	SIMULATIONMODE simmode_return_value = SM_EVENT;
 
-	double E_mag_QV,x_QV;
-
 	//If we have a meter, reset the accumulators
 	if (parent_is_a_meter == true)
 	{
@@ -1882,83 +1880,17 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - pred_state.q_measure * mq;
-				pred_state.dV_ini = (V_ref - pred_state.v_measure) * kiv;
-				pred_state.V_ini = curr_state.V_ini + pred_state.dV_ini * deltat;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
+				  E_mag = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,E_min,pred_state.Vdc_pu*mdc,E_min,pred_state.Vdc_pu*mdc,PREDICTOR);
 
-					if (pred_state.V_ini > pred_state.Vdc_pu * mdc) // E_max = 1.2, V_DC/Vdc_base
-					{
-						pred_state.V_ini = pred_state.Vdc_pu * mdc;
-					}
-
-					if (pred_state.V_ini < E_min) // E_min = 0
-					{
-						pred_state.V_ini = E_min;
-					}
-
-					E_mag = pred_state.V_ini + pred_state.dV_ini / kiv * kpv;
-
-					if (E_mag > pred_state.Vdc_pu * mdc) // E_max = 1
-					{
-						E_mag = pred_state.Vdc_pu * mdc;
-					}
-
-					if (E_mag < E_min) // E_min = 0
-					{
-						E_mag = E_min;
-					}
-
-					//E_mag = E_mag * (V_DC/Vdc_base);
-
-					// V_ref is the voltage reference obtained from Q-V droop
-					// Vset is the voltage set point, usually 1 pu
-					// mq is the Q-V droop gain, usually 0.05 pu
-					// V_ini is the output from the integrator in the voltage controller
-					// E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
-					// E_max and E_min are the maximum and minimum of the output of voltage controller
-					// Function end
 				}
 				else
 				{
-
-					if (pred_state.V_ini > E_max) // E_max = 1.2, V_DC/Vdc_base
-					{
-						pred_state.V_ini = E_max;
-					}
-
-					if (pred_state.V_ini < E_min) // E_min = 0
-					{
-						pred_state.V_ini = E_min;
-					}
-
-					E_mag = pred_state.V_ini + pred_state.dV_ini / kiv * kpv;
-
-					if (E_mag > E_max) // E_max = 1
-					{
-						E_mag = E_max;
-					}
-
-					if (E_mag < E_min) // E_min = 0
-					{
-						E_mag = E_min;
-					}
-
-					E_mag_QV = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,PREDICTOR);
-					x_QV = QV_pi.getstate(PREDICTOR);
-					printf("Predictor: delta_time = %d E_mag = %lf,E_mag_QV = %lf,x = %lf, x_QV = %lf,diff = %lf\n",delta_time,E_mag,E_mag_QV,pred_state.V_ini,x_QV,E_mag-E_mag_QV);
-
-					// V_ref is the voltage reference obtained from Q-V droop
-					// Vset is the voltage set point, usually 1 pu
-					// mq is the Q-V droop gain, usually 0.05 pu
-					// V_ini is the output from the integrator in the voltage controller
-					// E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
-					// E_max and E_min are the maximum and minimum of the output of voltage controller
-					// Function end
+				  E_mag = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,PREDICTOR);
+				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
-
-
 
 				// Function: P-f droop, Pmax and Pmin controller
 				delta_w_droop = (Pset - pred_state.p_measure) * mp; // P-f droop
@@ -2171,81 +2103,18 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - next_state.q_measure * mq;
-				next_state.dV_ini = (V_ref - next_state.v_measure) * kiv;
-				next_state.V_ini = curr_state.V_ini + (pred_state.dV_ini + next_state.dV_ini) * deltat / 2.0;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
-					if (next_state.V_ini > next_state.Vdc_pu * mdc) // E_max = 1.2, V_DC/Vdc_base
-					{
-						next_state.V_ini = next_state.Vdc_pu * mdc;
-					}
+				  E_mag = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,E_min,next_state.Vdc_pu*mdc,E_min,next_state.Vdc_pu*mdc,CORRECTOR);
 
-					if (next_state.V_ini < E_min) // E_min = 0
-					{
-						next_state.V_ini = E_min;
-					}
-
-					E_mag = next_state.V_ini + next_state.dV_ini / kiv * kpv;
-
-					if (E_mag > next_state.Vdc_pu * mdc) // E_max = 1.2
-					{
-						E_mag = next_state.Vdc_pu * mdc;
-					}
-
-					if (E_mag < E_min) // E_min = 0
-					{
-						E_mag = E_min;
-					}
-
-					//E_mag = E_mag * (V_DC/Vdc_base);
-
-					// V_ref is the voltage reference obtained from Q-V droop
-					// Vset is the voltage set point, usually 1 pu
-					// mq is the Q-V droop gain, usually 0.05 pu
-					// V_ini is the output from the integrator in the voltage controller
-					// E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
-					// E_max and E_min are the maximum and minimum of the output of voltage controller
-					// Function end
+				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 				else
 				{
 
-					if (next_state.V_ini > E_max) // E_max = 1.2, V_DC/Vdc_base
-					{
-						next_state.V_ini = E_max;
-					}
-
-					if (next_state.V_ini < E_min) // E_min = 0
-					{
-						next_state.V_ini = E_min;
-					}
-
-					E_mag = next_state.V_ini + next_state.dV_ini / kiv * kpv;
-
-					if (E_mag > E_max) // E_max = 1.2
-					{
-						E_mag = E_max;
-					}
-
-					if (E_mag < E_min) // E_min = 0
-					{
-						E_mag = E_min;
-					}
-
-					E_mag_QV = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,CORRECTOR);
-					x_QV = QV_pi.getstate(CORRECTOR);
-					printf("Corrector: delta_time = %d E_mag = %lf,E_mag_QV = %lf,x = %lf, x_QV = %lf,diff = %lf\n",delta_time,E_mag,E_mag_QV,next_state.V_ini,x_QV,E_mag-E_mag_QV);
-
-					//E_mag = E_mag * (V_DC/Vdc_base);
-
-					// V_ref is the voltage reference obtained from Q-V droop
-					// Vset is the voltage set point, usually 1 pu
-					// mq is the Q-V droop gain, usually 0.05 pu
-					// V_ini is the output from the integrator in the voltage controller
-					// E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
-					// E_max and E_min are the maximum and minimum of the output of voltage controller
-					// Function end
+				  E_mag = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,CORRECTOR);
+				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 
 				// Function: P-f droop, Pmax and Pmin controller
@@ -3591,8 +3460,7 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 				curr_time->Angle[i] = (e_source[i]).Arg(); // Obtain the inverter internal voltage phasor angle
 			}
 
-			// Initialize the internal voltage magnitudes
-			// curr_time->V_ini = (e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base;
+
 			// QV control block initialization
 			// Add parameters to QV control block
 			// We add the parameters here instead of the create
@@ -3600,7 +3468,8 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			// the glm file as well.
 			QV_pi.setconstants(kpv,kiv,E_min,E_max,E_min,E_max);
 
-			curr_time->V_ini = QV_pi.init(0,(e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base);
+			// Initialize the QV_pi block
+			QV_pi.init(0,(e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base);
 			
 
 			//See if it is the first deltamode entry - theory is all future changes will trigger deltamode, so these should be set

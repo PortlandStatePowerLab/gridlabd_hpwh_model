@@ -128,7 +128,7 @@ class Cblock
   int setylimits(double ymin, double ymax);
 
   // Method for initializing state x given input u and output y
-  double init(double u, double y);
+  void init(double u, double y);
 
   // Method for getting the output
   double getoutput(double u,double dt,DeltaModeStage stage);

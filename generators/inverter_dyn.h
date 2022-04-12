@@ -31,9 +31,7 @@ typedef struct
 	double v_measure;
 	double dv_measure;
 
-	// state variables in the voltage control loop
 	double V_ini;
-	double dV_ini;
 
 	// state variables of the dc bus voltage when using grid-forming PV
 	double dVdc_pu;
@@ -269,6 +267,9 @@ public:
 	double E_min;		  //
 
 	PIControl QV_pi; // QV PI control block
+	Filter    Qmeas; // Q-measurement filter block
+	Filter    Vmeas; // V-measurement filter block
+	Filter    Pmeas; // P-measurement filter block
 
 	double delta_w_droop; // delta mega from P-f droop
 	double delta_w_Pmax;  //
