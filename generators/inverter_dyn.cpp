@@ -176,7 +176,7 @@ inverter_dyn::inverter_dyn(MODULE *module)
 
 			PT_double, "p_measure", PADDR(curr_state.p_measure), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered active power for grid-forming inverter",
 			PT_double, "q_measure", PADDR(curr_state.q_measure), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered reactive power for grid-forming inverter",
-			PT_double, "v_measure", PADDR(curr_state.v_measure), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered voltage for grid-forming inverter",
+			PT_double, "v_measure", PADDR(Vmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered voltage for grid-forming inverter",
 
 			//DC Bus portions
 			PT_double, "V_In[V]", PADDR(V_DC), PT_DESCRIPTION, "DC input voltage",
@@ -1693,6 +1693,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 	SIMULATIONMODE simmode_return_value = SM_EVENT;
 
+	double v_measured; // Output of voltage measurement block
+
 	//If we have a meter, reset the accumulators
 	if (parent_is_a_meter == true)
 	{
@@ -1868,27 +1870,21 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 				// Function: Low pass filter of V
 				pCircuit_V_Avg_pu = (value_Circuit_V[0].Mag() + value_Circuit_V[1].Mag() + value_Circuit_V[2].Mag()) / 3.0 / V_base;
-				pred_state.dv_measure = 1.0 / Tv * (pCircuit_V_Avg_pu - curr_state.v_measure);
-				pred_state.v_measure = curr_state.v_measure + (deltat * pred_state.dv_measure);
 
-				// Value_Circuit_V[i] refers to the voltage of each phase at the grid side
-				// Vbase is the rated Line to ground voltage
-				// pCircuit_V_Avg_pu refers to the average value of three phase voltages, it is per-unit value
-				// v_measure refers to filtered voltage, it is per-unit value
-				// Tv is the time constant of low pass filter
-				// Function end
+				// v_measured refers to filtered voltage, it is per-unit value
+				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,PREDICTOR);
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - pred_state.q_measure * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
-				  E_mag = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,E_min,pred_state.Vdc_pu*mdc,E_min,pred_state.Vdc_pu*mdc,PREDICTOR);
+				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,E_min,pred_state.Vdc_pu*mdc,E_min,pred_state.Vdc_pu*mdc,PREDICTOR);
 
 				}
 				else
 				{
-				  E_mag = QV_pi.getoutput(V_ref-pred_state.v_measure,deltat,PREDICTOR);
+				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,PREDICTOR);
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 
@@ -2092,28 +2088,23 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 				// Function: Low pass filter of V
 				pCircuit_V_Avg_pu = (value_Circuit_V[0].Mag() + value_Circuit_V[1].Mag() + value_Circuit_V[2].Mag()) / 3.0 / V_base;
-				next_state.dv_measure = 1.0 / Tv * (pCircuit_V_Avg_pu - pred_state.v_measure);
-				next_state.v_measure = curr_state.v_measure + (pred_state.dv_measure + next_state.dv_measure) * deltat / 2.0;
 
-				// Value_Circuit_V[i] refers to te voltage of each phase at the inverter terminal
-				// Vbase is the rated Line to ground voltage
-				// pCircuit_V_Avg_pu refers to the average value of three phase voltages, it is per-unit value
-				// v_measure refers to filtered voltage, it is per-unit value
-				// Function end
+				// v_measured refers to filtered voltage, it is per-unit value
+				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,CORRECTOR);
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - next_state.q_measure * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
-				  E_mag = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,E_min,next_state.Vdc_pu*mdc,E_min,next_state.Vdc_pu*mdc,CORRECTOR);
+				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,E_min,next_state.Vdc_pu*mdc,E_min,next_state.Vdc_pu*mdc,CORRECTOR);
 
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 				else
 				{
 
-				  E_mag = QV_pi.getoutput(V_ref-next_state.v_measure,deltat,CORRECTOR);
+				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,CORRECTOR);
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 
@@ -3466,7 +3457,7 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			// We add the parameters here instead of the create
 			// function because the parameters can be set through
 			// the glm file as well.
-			QV_pi.setconstants(kpv,kiv,E_min,E_max,E_min,E_max);
+			QV_pi.setparams(kpv,kiv,E_min,E_max,E_min,E_max);
 
 			// Initialize the QV_pi block
 			QV_pi.init(0,(e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base);
@@ -3498,7 +3489,10 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			// Initialize measured P,Q,and V
 			curr_time->p_measure = VA_Out.Re() / S_base;
 			curr_time->q_measure = VA_Out.Im() / S_base;
-			curr_time->v_measure = pCircuit_V_Avg_pu;
+
+			// Initialize Vmeas filter block
+			Vmeas.setparams(Tv);
+			Vmeas.init(0,pCircuit_V_Avg_pu);
 
 			// Initialize Pmax and Pmin controller
 			curr_time->delta_w_Pmax_ini = 0;

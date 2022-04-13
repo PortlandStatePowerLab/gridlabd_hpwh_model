@@ -98,12 +98,12 @@ class Cblock
   double p_dxdt[1];   /* State derivative */
   double p_xhat[1];   /* Predictor stage x */
 
-  double p_xmax,p_xmin; /* Max./Min. limits on state X */
-  double p_ymax,p_ymin; /* Max./Min. limits on output Y */
-
   // p_order is kept for future extensions if and
   // when the order of the transfer function > 1
   int    p_order; /* order of the control block */
+
+  double p_xmax,p_xmin; /* Max./Min. limits on state X */
+  double p_ymax,p_ymin; /* Max./Min. limits on output Y */
 
   // Method for updating state x
   double updatestate(double u, double dt,double xmin, double xmax, DeltaModeStage stage);
@@ -116,20 +116,19 @@ class Cblock
 
  public:
   Cblock();
-  Cblock(int);
 
   // This is made public so that it can be accessed via
   // PADDR() method
   double x[1];      /* State variable x */
 
-  // Method for setting state-space parameters
-  int setparams(double *a,double *b);
+  // Method for setting state-space model coefficients
+  void setcoeffs(double *a,double *b);
 
   // Method for setting x limits
-  int setxlimits(double xmin, double xmax);
+  void setxlimits(double xmin, double xmax);
 
   // Method for setting y limits
-  int setylimits(double ymin, double ymax);
+  void setylimits(double ymin, double ymax);
 
   // Method for initializing state x given input u and output y
   void init(double u, double y);
@@ -141,7 +140,7 @@ class Cblock
   double getoutput(double u,double dt,double xmin, double xmax, double ymin, double ymax, DeltaModeStage stage);
 
   // Method for getting state x
-  const double getstate(DeltaModeStage stage);
+  double getstate(DeltaModeStage stage);
 
   ~Cblock(void);
 };
@@ -177,13 +176,10 @@ class PIControl: public Cblock
 {
  public:
   PIControl();
-  PIControl(double Kp, double Ki);
-  PIControl(double Kp, double Ki, double xmin, double xmax);
-  PIControl(double Kp, double Ki, double xmin, double xmax,double ymin, double ymax);
 
-  // Methods for setting constants
-  int setconstants(double Kp, double Ki);
-  int setconstants(double Kp, double Ki,double xmin,double xmax,double ymin,double ymax);
+  // Methods for setting parameters
+  void setparams(double Kp, double Ki);
+  void setparams(double Kp, double Ki,double xmin,double xmax,double ymin,double ymax);
 };
 
 /*
@@ -218,14 +214,11 @@ class Filter: public Cblock
  public:
   Filter();
   Filter(double T);
-  Filter(double T, double xmin, double xmax);
   Filter(double T, double xmin, double xmax,double ymin, double ymax);
 
-  // Methods for setting constants
-  int setconstants(double T);
-  int setconstants(double T,double xmin,double xmax,double ymin,double ymax);
+  // Methods for setting parameters
+  void setparams(double T);
+  void setparams(double T,double xmin,double xmax,double ymin,double ymax);
 };
-
-
 
 #endif

@@ -1,22 +1,17 @@
 #include "cblock.h"
 
-Cblock::Cblock(int order)
+Cblock::Cblock()
 {
-  p_order = order;
+  p_order = 1; // For future use
   p_xmin  = p_ymin = -1000.0;
   p_xmax  = p_ymax =  1000.0;
-}
-
-Cblock::Cblock(void)
-{
-  Cblock(1);
 }
 
 Cblock::~Cblock(void)
 {
 }
 
-/* Set the parameters for the transfer function
+/* Set the coefficients for the transfer function
 
   Y(s)    b0s + b1
  ----- = --------------
@@ -24,7 +19,7 @@ Cblock::~Cblock(void)
 
   a = [a0,a1], b = [b0,b1]
  */
-int Cblock::setparams(double *a,double *b)
+void Cblock::setcoeffs(double *a,double *b)
 {
   p_A[0] = -a[1]/a[0];
   p_B[0] = (b[1] - a[1]*b[0])/a[0];
@@ -32,20 +27,17 @@ int Cblock::setparams(double *a,double *b)
   p_D[0] = b[0]/a[0];
 }
 
-int Cblock::setxlimits(double xmin,double xmax)
+void Cblock::setxlimits(double xmin,double xmax)
 {
   p_xmin = xmin;
   p_xmax = xmax;
-
-  return 0;
 }
 
-int Cblock::setylimits(double ymin,double ymax)
+void Cblock::setylimits(double ymin,double ymax)
 {
   p_ymin = ymin;
   p_ymax = ymax;
 
-  return 0;
 }
 
 double Cblock::getderivative(double x, double u)
@@ -115,7 +107,7 @@ void Cblock::init(double u, double y)
   }
 }
 
-const double Cblock::getstate(DeltaModeStage stage)
+double Cblock::getstate(DeltaModeStage stage)
 {
   double xout;
   if(stage == PREDICTOR) xout = p_xhat[0];
@@ -127,25 +119,11 @@ const double Cblock::getstate(DeltaModeStage stage)
 // PI Controller
 // ------------------------------------
 
-PIControl::PIControl(void)
+PIControl::PIControl(void): Cblock()
 {
-  PIControl(1.0,1.0);
 }
 
-PIControl::PIControl(double Kp, double Ki)
-{
-  setconstants(Kp,Ki);
-}
-
-PIControl::PIControl(double Kp, double Ki, double xmin, double xmax, double ymin, double ymax)
-{
-  PIControl(Kp,Ki);
-
-  setxlimits(xmin,xmax);
-  setylimits(ymin,ymax);
-}
-
-int PIControl::setconstants(double Kp, double Ki)
+void PIControl::setparams(double Kp, double Ki)
 {
   double a[2],b[2];
 
@@ -160,11 +138,14 @@ int PIControl::setconstants(double Kp, double Ki)
   a[0] = 1.0;
   a[1] = 0.0;
 
-  setparams(a,b);
+  setcoeffs(a,b);
+  setxlimits(-1000.0,1000.0);
+  setylimits(-1000.0,1000.0);
+
 }
-int PIControl::setconstants(double Kp, double Ki,double xmin,double xmax,double ymin,double ymax)
+void PIControl::setparams(double Kp, double Ki,double xmin,double xmax,double ymin,double ymax)
 {
-  setconstants(Kp,Ki);
+  setparams(Kp,Ki);
   setxlimits(xmin,xmax);
   setylimits(ymin,ymax);
 }
@@ -175,23 +156,11 @@ int PIControl::setconstants(double Kp, double Ki,double xmin,double xmax,double 
 
 Filter::Filter(void)
 {
-  Filter(1.0); // default time-constant is 1.0
+  setxlimits(-1000.0,1000.0);
+  setylimits(-1000.0,1000.0);
 }
 
-Filter::Filter(double T)
-{
-  setconstants(T);
-}
-
-Filter::Filter(double T, double xmin, double xmax, double ymin, double ymax)
-{
-  Filter(Ts);
-
-  setxlimits(xmin,xmax);
-  setylimits(ymin,ymax);
-}
-
-int Filter::setconstants(double T)
+void Filter::setparams(double T)
 {
   double a[2],b[2];
 
@@ -206,12 +175,14 @@ int Filter::setconstants(double T)
   a[0] = T;
   a[1] = 1;
 
-  setparams(a,b);
+  setcoeffs(a,b);
+  setxlimits(-1000.0,1000.0);
+  setylimits(-1000.0,1000.0);
 }
 
-int Filter::setconstants(double T,double xmin,double xmax,double ymin,double ymax)
+void Filter::setparams(double T,double xmin,double xmax,double ymin,double ymax)
 {
-  setconstants(T);
+  setparams(T);
   setxlimits(xmin,xmax);
   setylimits(ymin,ymax);
 }

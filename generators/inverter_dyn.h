@@ -27,10 +27,6 @@ typedef struct
 	double q_measure;
 	double dq_measure;
 
-	// state variables in the V measurements
-	double v_measure;
-	double dv_measure;
-
 	// state variables of the dc bus voltage when using grid-forming PV
 	double dVdc_pu;
 	double Vdc_pu;
