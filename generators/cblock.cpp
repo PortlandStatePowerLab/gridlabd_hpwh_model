@@ -55,32 +55,32 @@ double Cblock::getderivative(double x, double u)
 
 double Cblock::updatestate(double u,double dt,double xmin,double xmax,DeltaModeStage stage)
 {
-  double x,dx_dt;
+  double xout,dx_dt;
 
   if(stage == PREDICTOR) {
-    p_dxdt[0] = getderivative(p_x[0],u);
-    x = p_x[0] + dt*p_dxdt[0];
-    x = std::max(xmin,std::min(x,xmax));
-    p_xhat[0] = x;
+    p_dxdt[0] = getderivative(x[0],u);
+    xout = x[0] + dt*p_dxdt[0];
+    xout = std::max(xmin,std::min(xout,xmax));
+    p_xhat[0] = xout;
   }
 
   if(stage == CORRECTOR) {
     dx_dt = getderivative(p_xhat[0],u);
-    x     = p_x[0] + 0.5*dt*(p_dxdt[0] + dx_dt);
-    x = std::max(xmin,std::min(x,xmax));
-    p_x[0] = x;
+    xout = x[0] + 0.5*dt*(p_dxdt[0] + dx_dt);
+    xout = std::max(xmin,std::min(xout,xmax));
+    x[0] = xout;
   }
 
-  return x;
+  return xout;
 }
 
 double Cblock::updatestate(double u,double dt,DeltaModeStage stage)
 {
-  double x;
+  double xout;
 
-  x = updatestate(u,dt,p_xmin,p_xmax,stage);
+  xout = updatestate(u,dt,p_xmin,p_xmax,stage);
 
-  return x;
+  return xout;
 }
 
 double Cblock::getoutput(double u,double dt,double xmin,double xmax,double ymin,double ymax,DeltaModeStage stage)
@@ -108,19 +108,19 @@ double Cblock::getoutput(double u,double dt,DeltaModeStage stage)
 void Cblock::init(double u, double y)
 {
   double uout;
-  if(fabs(p_A[0]) < 1e-10) p_x[0] = y;
+  if(fabs(p_A[0]) < 1e-10) x[0] = y;
   else {
     uout = y/(p_D[0] - p_C[0]*p_B[0]/p_A[0]);
-    p_x[0] = -p_B[0]/p_A[0]*uout;
+    x[0] = -p_B[0]/p_A[0]*uout;
   }
 }
 
 const double Cblock::getstate(DeltaModeStage stage)
 {
-  double x;
-  if(stage == PREDICTOR) x = p_xhat[0];
-  if(stage == CORRECTOR) x = p_x[0];
-  return x;
+  double xout;
+  if(stage == PREDICTOR) xout = p_xhat[0];
+  if(stage == CORRECTOR) xout = x[0];
+  return xout;
 }
 
 // ------------------------------------

@@ -95,7 +95,6 @@ class Cblock
   double p_C[1]; /* C */
   double p_D[1]; /* D */
 
-  double p_x[1];      /* State variable x */
   double p_dxdt[1];   /* State derivative */
   double p_xhat[1];   /* Predictor stage x */
 
@@ -118,7 +117,12 @@ class Cblock
  public:
   Cblock();
   Cblock(int);
-  // Method for settting state-space parameters
+
+  // This is made public so that it can be accessed via
+  // PADDR() method
+  double x[1];      /* State variable x */
+
+  // Method for setting state-space parameters
   int setparams(double *a,double *b);
 
   // Method for setting x limits
