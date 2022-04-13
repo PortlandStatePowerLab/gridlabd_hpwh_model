@@ -19,13 +19,6 @@ typedef struct
 {
 
 	///////Grid-Forming
-	// state variables in the P measurements
-	double p_measure;
-	double dp_measure;
-
-	// state variables in the Q measurements
-	double q_measure;
-	double dq_measure;
 
 	// state variables of the dc bus voltage when using grid-forming PV
 	double dVdc_pu;
@@ -260,6 +253,7 @@ public:
 	double E_max;		  // E_max and E_min are the maximum and minimum of the output of voltage controller
 	double E_min;		  //
 
+	// Grid forming control blocks
 	PIControl QV_pi; // QV PI control block
 	Filter    Qmeas; // Q-measurement filter block
 	Filter    Vmeas; // V-measurement filter block

@@ -174,8 +174,8 @@ inverter_dyn::inverter_dyn(MODULE *module)
 			PT_double, "kiVdc", PADDR(kiVdc), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: integral gain of Vdc_min controller",
 			PT_double, "kdVdc", PADDR(kiVdc), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: derivative gain of Vdc_min controller",
 
-			PT_double, "p_measure", PADDR(curr_state.p_measure), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered active power for grid-forming inverter",
-			PT_double, "q_measure", PADDR(curr_state.q_measure), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered reactive power for grid-forming inverter",
+			PT_double, "p_measure", PADDR(Pmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered active power for grid-forming inverter",
+			PT_double, "q_measure", PADDR(Qmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered reactive power for grid-forming inverter",
 			PT_double, "v_measure", PADDR(Vmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered voltage for grid-forming inverter",
 
 			//DC Bus portions
@@ -1694,6 +1694,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 	SIMULATIONMODE simmode_return_value = SM_EVENT;
 
 	double v_measured; // Output of voltage measurement block
+	double p_measured; // Output of active power measurement block
+	double q_measured; // Output of reactive power measurement block
 
 	//If we have a meter, reset the accumulators
 	if (parent_is_a_meter == true)
@@ -1804,28 +1806,27 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				VA_Out = power_val[0] + power_val[1] + power_val[2];
 
 				// The following code is only for three phase system
+
 				// Function: Low pass filter of P
 				P_out_pu = VA_Out.Re() / S_base;
-				pred_state.dp_measure = 1.0 / Tp * (P_out_pu - curr_state.p_measure);
-				pred_state.p_measure = curr_state.p_measure + (deltat * pred_state.dp_measure);
+
+				// Output of active power measurement block
+				p_measured = Pmeas.getoutput(P_out_pu,deltat,PREDICTOR);
 
 				// VA_OUT.Re() refers to the output active power from the inverter.
 				// S_base is the rated capacity
 				// P_out_pu is the per unit value of VA_OUT.Re()
-				// p_measure is the filtered active power, it is per-unit value
-				// Tp is the time constant of low pass filter, it is per-unit value
-				// Function end
+				// p_measured is the filtered active power, it is per-unit value
 
 				// Function: Low pass filter of Q
 				Q_out_pu = VA_Out.Im() / S_base;
-				pred_state.dq_measure = 1.0 / Tq * (Q_out_pu - curr_state.q_measure);
-				pred_state.q_measure = curr_state.q_measure + (deltat * pred_state.dq_measure);
+
+				// Output of reactive power measurement block
+				q_measured = Qmeas.getoutput(Q_out_pu,deltat,PREDICTOR);
 
 				// VA_OUT.Im() refers to the output reactive power from the inverter
 				// Q_out_pu is the per-unit value of VA_Out.Im()
-				// q_measure is the filtered reactive power, it is per-unit value
-				// Tq is the time constant of low pass filter, it is per-unit value
-				// Function end
+				// q_measured is the filtered reactive power, it is per-unit value
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus
 				{
@@ -1875,7 +1876,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,PREDICTOR);
 
 				// Function: Q-V droop control and voltage control loop
-				V_ref = Vset - pred_state.q_measure * mq;
+				V_ref = Vset - q_measured * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
@@ -1889,10 +1890,10 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				}
 
 				// Function: P-f droop, Pmax and Pmin controller
-				delta_w_droop = (Pset - pred_state.p_measure) * mp; // P-f droop
+				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
 				// Pmax controller
-				pred_state.ddelta_w_Pmax_ini = (Pmax - pred_state.p_measure) * kipmax;
+				pred_state.ddelta_w_Pmax_ini = (Pmax - p_measured) * kipmax;
 				pred_state.delta_w_Pmax_ini = curr_state.delta_w_Pmax_ini + pred_state.ddelta_w_Pmax_ini * deltat;
 
 				if (pred_state.delta_w_Pmax_ini > 0)
@@ -1918,7 +1919,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				}
 
 				// Pmin controller
-				pred_state.ddelta_w_Pmin_ini = (Pmin - pred_state.p_measure) * kipmax;
+				pred_state.ddelta_w_Pmin_ini = (Pmin - p_measured) * kipmax;
 				pred_state.delta_w_Pmin_ini = curr_state.delta_w_Pmin_ini + pred_state.ddelta_w_Pmin_ini * deltat;
 
 				if (pred_state.delta_w_Pmin_ini < 0) //
@@ -2023,21 +2024,22 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 
 				// The following code is only for three phase system
 				// Function: Low pass filter of P
+
 				P_out_pu = VA_Out.Re() / S_base;
-				next_state.dp_measure = 1.0 / Tp * (P_out_pu - pred_state.p_measure);
-				next_state.p_measure = curr_state.p_measure + (pred_state.dp_measure + next_state.dp_measure) * deltat / 2.0;
+
+				// Output of active power measurement block
+				p_measured = Pmeas.getoutput(P_out_pu,deltat,CORRECTOR);
 
 				// VA_OUT.Re() refers to the output active power from the inverter, this should be normalized.
 				// S_base is the rated capacity
 				// P_out_pu is the per unit value of VA_OUT.Re()
-				// p_measure is the filtered active power, it is per-unit value
-				// Tp is the time constant of low pass filter, it is per-unit value
-				// Function end
+				// p_measured is the filtered active power, it is per-unit value
 
 				// Function: Low pass filter of Q
 				Q_out_pu = VA_Out.Im() / S_base;
-				next_state.dq_measure = 1.0 / Tq * (Q_out_pu - pred_state.q_measure);
-				next_state.q_measure = curr_state.q_measure + (pred_state.dq_measure + next_state.dq_measure) * deltat / 2.0;
+
+				// Output of reactive power measurement block
+				q_measured = Qmeas.getoutput(Q_out_pu,deltat,CORRECTOR);
 
 				// VA_OUT.Im() refers to the output reactive power from the inverter
 				// Q_out_pu is the per-unit value of VA_Out.Im()
@@ -2093,7 +2095,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,CORRECTOR);
 
 				// Function: Q-V droop control and voltage control loop
-				V_ref = Vset - next_state.q_measure * mq;
+				V_ref = Vset - q_measured * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
@@ -2109,10 +2111,10 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				}
 
 				// Function: P-f droop, Pmax and Pmin controller
-				delta_w_droop = (Pset - next_state.p_measure) * mp; // P-f droop
+				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
 				// Pmax controller
-				next_state.ddelta_w_Pmax_ini = (Pmax - next_state.p_measure) * kipmax;
+				next_state.ddelta_w_Pmax_ini = (Pmax - p_measured) * kipmax;
 				next_state.delta_w_Pmax_ini = curr_state.delta_w_Pmax_ini + (pred_state.ddelta_w_Pmax_ini + next_state.ddelta_w_Pmax_ini) * deltat / 2.0;
 
 				if (next_state.delta_w_Pmax_ini > 0) //
@@ -2138,7 +2140,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				}
 
 				// Pmin controller
-				next_state.ddelta_w_Pmin_ini = (Pmin - next_state.p_measure) * kipmax;
+				next_state.ddelta_w_Pmin_ini = (Pmin - p_measured) * kipmax;
 				next_state.delta_w_Pmin_ini = curr_state.delta_w_Pmin_ini + (pred_state.ddelta_w_Pmin_ini + next_state.ddelta_w_Pmin_ini) * deltat / 2.0;
 
 				if (next_state.delta_w_Pmin_ini < 0) //
@@ -3487,8 +3489,11 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			//Default else - all changes should be in deltamode
 
 			// Initialize measured P,Q,and V
-			curr_time->p_measure = VA_Out.Re() / S_base;
-			curr_time->q_measure = VA_Out.Im() / S_base;
+			Pmeas.setparams(Tp);
+			Pmeas.init(0,VA_Out.Re()/S_base);
+
+			Qmeas.setparams(Tq);
+			Qmeas.init(0,VA_Out.Im()/S_base);
 
 			// Initialize Vmeas filter block
 			Vmeas.setparams(Tv);
