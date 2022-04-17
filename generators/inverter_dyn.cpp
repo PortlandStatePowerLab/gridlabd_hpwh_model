@@ -1892,68 +1892,14 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				// Function: P-f droop, Pmax and Pmin controller
 				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
-				// Pmax controller
-				pred_state.ddelta_w_Pmax_ini = (Pmax - p_measured) * kipmax;
-				pred_state.delta_w_Pmax_ini = curr_state.delta_w_Pmax_ini + pred_state.ddelta_w_Pmax_ini * deltat;
-
-				if (pred_state.delta_w_Pmax_ini > 0)
-				{
-					pred_state.delta_w_Pmax_ini = 0;
-				}
-
-				if (pred_state.delta_w_Pmax_ini < -w_lim) // -w_lim = -50
-				{
-					pred_state.delta_w_Pmax_ini = -w_lim;
-				}
-
-				delta_w_Pmax = pred_state.delta_w_Pmax_ini + pred_state.ddelta_w_Pmax_ini / kipmax * kppmax; //output from Pmax controller
-
-				if (delta_w_Pmax > 0) //
-				{
-					delta_w_Pmax = 0;
-				}
-
-				if (delta_w_Pmax < -w_lim) // -w_lim = -50
-				{
-					delta_w_Pmax = -w_lim;
-				}
-
-				// Pmin controller
-				pred_state.ddelta_w_Pmin_ini = (Pmin - p_measured) * kipmax;
-				pred_state.delta_w_Pmin_ini = curr_state.delta_w_Pmin_ini + pred_state.ddelta_w_Pmin_ini * deltat;
-
-				if (pred_state.delta_w_Pmin_ini < 0) //
-				{
-					pred_state.delta_w_Pmin_ini = 0;
-				}
-
-				if (pred_state.delta_w_Pmin_ini > w_lim) // w_lim = 50
-				{
-					pred_state.delta_w_Pmin_ini = w_lim;
-				}
-
-				delta_w_Pmin = pred_state.delta_w_Pmin_ini + pred_state.ddelta_w_Pmin_ini / kipmax * kppmax; // output from Pmin controller
-
-				if (delta_w_Pmin < 0) //
-				{
-					delta_w_Pmin = 0;
-				}
-
-				if (delta_w_Pmin > w_lim) // w_lim = 50
-				{
-					delta_w_Pmin = w_lim;
-				}
+				// Output of Pmin, Pmax freq. controller blocks
+				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,PREDICTOR);
+				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,PREDICTOR);
 
 				pred_state.delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
 
 				// delta_w_droop is the output of P-f droop
 				// Pset is the power set point
-				// delta_w_Pmax_ini and delta_w_Pmin_ini are the outputs of the integrator of Pmax controller and Pmin controller
-				// delta_w_Pmax and delta_w_Pmin are the outputs of Pmax controller and Pmin controller
-				// Pmax and Pmin are the maximum limit and minimum limit of Pmax controller and Pmin controller
-				// w_lim is the saturation limit
-				// w_ref is the rated frequency, usually 376.99 rad/s
-				// Function end
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
@@ -2113,68 +2059,14 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				// Function: P-f droop, Pmax and Pmin controller
 				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
-				// Pmax controller
-				next_state.ddelta_w_Pmax_ini = (Pmax - p_measured) * kipmax;
-				next_state.delta_w_Pmax_ini = curr_state.delta_w_Pmax_ini + (pred_state.ddelta_w_Pmax_ini + next_state.ddelta_w_Pmax_ini) * deltat / 2.0;
-
-				if (next_state.delta_w_Pmax_ini > 0) //
-				{
-					next_state.delta_w_Pmax_ini = 0;
-				}
-
-				if (next_state.delta_w_Pmax_ini < -w_lim) // -w_lim = -50
-				{
-					next_state.delta_w_Pmax_ini = -w_lim;
-				}
-
-				delta_w_Pmax = next_state.delta_w_Pmax_ini + next_state.ddelta_w_Pmax_ini / kipmax * kppmax; //output from Pmax controller
-
-				if (delta_w_Pmax > 0) //
-				{
-					delta_w_Pmax = 0;
-				}
-
-				if (delta_w_Pmax < -w_lim) // -w_lim = -50
-				{
-					delta_w_Pmax = -w_lim;
-				}
-
-				// Pmin controller
-				next_state.ddelta_w_Pmin_ini = (Pmin - p_measured) * kipmax;
-				next_state.delta_w_Pmin_ini = curr_state.delta_w_Pmin_ini + (pred_state.ddelta_w_Pmin_ini + next_state.ddelta_w_Pmin_ini) * deltat / 2.0;
-
-				if (next_state.delta_w_Pmin_ini < 0) //
-				{
-					next_state.delta_w_Pmin_ini = 0;
-				}
-
-				if (next_state.delta_w_Pmin_ini > w_lim) // w_lim = 50
-				{
-					next_state.delta_w_Pmin_ini = w_lim;
-				}
-
-				delta_w_Pmin = next_state.delta_w_Pmin_ini + next_state.ddelta_w_Pmin_ini / kipmax * kppmax; // output from Pmin controller
-
-				if (delta_w_Pmin < 0) //
-				{
-					delta_w_Pmin = 0;
-				}
-
-				if (delta_w_Pmin > w_lim) // w_lim = 50
-				{
-					delta_w_Pmin = w_lim;
-				}
+				// Pmin, Pmax freq. controller output
+				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,CORRECTOR);
+				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,CORRECTOR);
 
 				next_state.delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
 
 				// delta_w_droop is the output of P-f droop
 				// Pset is the power set point
-				// delta_w_Pmax_ini and delta_w_Pmin_ini are the outputs of the integrator of Pmax controller and Pmin controller
-				// delta_w_Pmax and delta_w_Pmin are the outputs of Pmax controller and Pmin controller
-				// Pmax and Pmin are the maximum limit and minimum limit of Pmax controller and Pmin controller
-				// w_lim is the saturation limit
-				// w_ref is the rated frequency, usually 376.99 rad/s
-				// Function end
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
@@ -3500,8 +3392,11 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			Vmeas.init(0,pCircuit_V_Avg_pu);
 
 			// Initialize Pmax and Pmin controller
-			curr_time->delta_w_Pmax_ini = 0;
-			curr_time->delta_w_Pmin_ini = 0;
+			Pminfreq.setparams(kppmax,kipmax,0.0,w_lim,0.0,w_lim);
+			Pmaxfreq.setparams(kppmax,kipmax,-w_lim,0.0,-w_lim,0.0);
+			  
+			Pminfreq.init(0.0,0.0);
+			Pmaxfreq.init(0.0,0.0);
 
 			// Initialize Vdc_min controller and DC bus voltage
 			if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated

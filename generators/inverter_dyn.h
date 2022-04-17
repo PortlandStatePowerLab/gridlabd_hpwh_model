@@ -24,12 +24,6 @@ typedef struct
 	double dVdc_pu;
 	double Vdc_pu;
 
-	// state variables of droop control, Pmax and Pmin control
-	double ddelta_w_Pmax_ini;
-	double delta_w_Pmax_ini;
-	double ddelta_w_Pmin_ini;
-	double delta_w_Pmin_ini;
-
 	// state variables of Vdc_min controller when using PV grid-forming control
 	double ddelta_w_Vdc_min_ini;
 	double delta_w_Vdc_min_ini;
@@ -254,10 +248,13 @@ public:
 	double E_min;		  //
 
 	// Grid forming control blocks
+
 	PIControl QV_pi; // QV PI control block
 	Filter    Qmeas; // Q-measurement filter block
 	Filter    Vmeas; // V-measurement filter block
 	Filter    Pmeas; // P-measurement filter block
+	PIControl Pminfreq; // Frequency controller for Pmin (replaces delta_w_Pmin_ini)
+	PIControl Pmaxfreq; // Frequency controller for Pmax (replaces delta_w_Pmax_ini)
 
 	double delta_w_droop; // delta mega from P-f droop
 	double delta_w_Pmax;  //
@@ -265,7 +262,7 @@ public:
 	double Pset;		  // power set point in P-f droop
 	double mp;			  // P-f droop gain, usually 3.77 rad/s/pu
 	double P_f_droop;     // p-f droop gain, per unit, usually 0.01
-	double kppmax;		  // proportional and integral gains for Pmax controller
+	double kppmax;		  // proportional and integral gains for Pmin and Pmax controller
 	double kipmax;
 	double w_lim; // w_lim is the saturation limit
 	double Pmax;  // Pmax and Pmin are the maximum limit and minimum limit of Pmax controller and Pmin controller
