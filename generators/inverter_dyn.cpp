@@ -46,9 +46,9 @@ inverter_dyn::inverter_dyn(MODULE *module)
 			PT_complex, "e_source_A", PADDR(e_source[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase A",
 			PT_complex, "e_source_B", PADDR(e_source[1]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase B",
 			PT_complex, "e_source_C", PADDR(e_source[2]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase C",
-			PT_double, "V_angle_A", PADDR(eAngle[0].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase A",
-			PT_double, "V_angle_B", PADDR(eAngle[1].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase B",
-			PT_double, "V_angle_C", PADDR(eAngle[2].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase C",
+			PT_double, "V_angle_A", PADDR(Angle_blk[0].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase A",
+			PT_double, "V_angle_B", PADDR(Angle_blk[1].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase B",
+			PT_double, "V_angle_C", PADDR(Angle_blk[2].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase C",
 
 			// 3 phase average value of terminal voltage
 			PT_double, "pCircuit_V_Avg_pu", PADDR(pCircuit_V_Avg_pu), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: three-phase average value of terminal voltage, per unit value",
@@ -174,9 +174,9 @@ inverter_dyn::inverter_dyn(MODULE *module)
 			PT_double, "kiVdc", PADDR(kiVdc), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: integral gain of Vdc_min controller",
 			PT_double, "kdVdc", PADDR(kiVdc), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: derivative gain of Vdc_min controller",
 
-			PT_double, "p_measure", PADDR(Pmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered active power for grid-forming inverter",
-			PT_double, "q_measure", PADDR(Qmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered reactive power for grid-forming inverter",
-			PT_double, "v_measure", PADDR(Vmeas.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered voltage for grid-forming inverter",
+			PT_double, "p_measure", PADDR(Pmeas_blk.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered active power for grid-forming inverter",
+			PT_double, "q_measure", PADDR(Qmeas_blk.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered reactive power for grid-forming inverter",
+			PT_double, "v_measure", PADDR(Vmeas_blk.x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: filtered voltage for grid-forming inverter",
 
 			//DC Bus portions
 			PT_double, "V_In[V]", PADDR(V_DC), PT_DESCRIPTION, "DC input voltage",
@@ -1813,7 +1813,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				P_out_pu = VA_Out.Re() / S_base;
 
 				// Output of active power measurement block
-				p_measured = Pmeas.getoutput(P_out_pu,deltat,PREDICTOR);
+				p_measured = Pmeas_blk.getoutput(P_out_pu,deltat,PREDICTOR);
 
 				// VA_OUT.Re() refers to the output active power from the inverter.
 				// S_base is the rated capacity
@@ -1824,7 +1824,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				Q_out_pu = VA_Out.Im() / S_base;
 
 				// Output of reactive power measurement block
-				q_measured = Qmeas.getoutput(Q_out_pu,deltat,PREDICTOR);
+				q_measured = Qmeas_blk.getoutput(Q_out_pu,deltat,PREDICTOR);
 
 				// VA_OUT.Im() refers to the output reactive power from the inverter
 				// Q_out_pu is the per-unit value of VA_Out.Im()
@@ -1875,19 +1875,19 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				pCircuit_V_Avg_pu = (value_Circuit_V[0].Mag() + value_Circuit_V[1].Mag() + value_Circuit_V[2].Mag()) / 3.0 / V_base;
 
 				// v_measured refers to filtered voltage, it is per-unit value
-				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,PREDICTOR);
+				v_measured = Vmeas_blk.getoutput(pCircuit_V_Avg_pu,deltat,PREDICTOR);
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - q_measured * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
-				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,E_min,pred_state.Vdc_pu*mdc,E_min,pred_state.Vdc_pu*mdc,PREDICTOR);
+				  E_mag = QV_blk.getoutput(V_ref-v_measured,deltat,E_min,pred_state.Vdc_pu*mdc,E_min,pred_state.Vdc_pu*mdc,PREDICTOR);
 
 				}
 				else
 				{
-				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,PREDICTOR);
+				  E_mag = QV_blk.getoutput(V_ref-v_measured,deltat,PREDICTOR);
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 
@@ -1895,8 +1895,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
 				// Output of Pmin, Pmax freq. controller blocks
-				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,PREDICTOR);
-				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,PREDICTOR);
+				delta_w_Pmax = Pmaxfreq_blk.getoutput(Pmax - p_measured,deltat,PREDICTOR);
+				delta_w_Pmin = Pminfreq_blk.getoutput(Pmin - p_measured,deltat,PREDICTOR);
 
 				delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
 
@@ -1930,7 +1930,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				// Function: Obtaining the Phase Angle, and obtaining the compelx value of internal voltages and their Norton Equivalence for power flow analysis
 				for (i = 0; i < 3; i++)
 				{
-				  Angle[i] = eAngle[i].getoutput(delta_w,deltat,PREDICTOR);
+				  Angle[i] = Angle_blk[i].getoutput(delta_w,deltat,PREDICTOR);
 
 				  e_source[i] = complex(E_mag * cos(Angle[i]), E_mag * sin(Angle[i])) * V_base; // transfers back to non-per-unit values
 				  value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							// Thevenin voltage source to Norton current source convertion
@@ -1977,7 +1977,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				P_out_pu = VA_Out.Re() / S_base;
 
 				// Output of active power measurement block
-				p_measured = Pmeas.getoutput(P_out_pu,deltat,CORRECTOR);
+				p_measured = Pmeas_blk.getoutput(P_out_pu,deltat,CORRECTOR);
 
 				// VA_OUT.Re() refers to the output active power from the inverter, this should be normalized.
 				// S_base is the rated capacity
@@ -1988,7 +1988,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				Q_out_pu = VA_Out.Im() / S_base;
 
 				// Output of reactive power measurement block
-				q_measured = Qmeas.getoutput(Q_out_pu,deltat,CORRECTOR);
+				q_measured = Qmeas_blk.getoutput(Q_out_pu,deltat,CORRECTOR);
 
 				// VA_OUT.Im() refers to the output reactive power from the inverter
 				// Q_out_pu is the per-unit value of VA_Out.Im()
@@ -2041,21 +2041,21 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				pCircuit_V_Avg_pu = (value_Circuit_V[0].Mag() + value_Circuit_V[1].Mag() + value_Circuit_V[2].Mag()) / 3.0 / V_base;
 
 				// v_measured refers to filtered voltage, it is per-unit value
-				v_measured = Vmeas.getoutput(pCircuit_V_Avg_pu,deltat,CORRECTOR);
+				v_measured = Vmeas_blk.getoutput(pCircuit_V_Avg_pu,deltat,CORRECTOR);
 
 				// Function: Q-V droop control and voltage control loop
 				V_ref = Vset - q_measured * mq;
 
 				if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated
 				{
-				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,E_min,next_state.Vdc_pu*mdc,E_min,next_state.Vdc_pu*mdc,CORRECTOR);
+				  E_mag = QV_blk.getoutput(V_ref-v_measured,deltat,E_min,next_state.Vdc_pu*mdc,E_min,next_state.Vdc_pu*mdc,CORRECTOR);
 
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 				else
 				{
 
-				  E_mag = QV_pi.getoutput(V_ref-v_measured,deltat,CORRECTOR);
+				  E_mag = QV_blk.getoutput(V_ref-v_measured,deltat,CORRECTOR);
 				  // E_mag is the output of the votlage controller, it is the voltage magnitude of the internal voltage
 				}
 
@@ -2063,8 +2063,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				delta_w_droop = (Pset - p_measured) * mp; // P-f droop
 
 				// Pmin, Pmax freq. controller output
-				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,CORRECTOR);
-				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,CORRECTOR);
+				delta_w_Pmax = Pmaxfreq_blk.getoutput(Pmax - p_measured,deltat,CORRECTOR);
+				delta_w_Pmin = Pminfreq_blk.getoutput(Pmin - p_measured,deltat,CORRECTOR);
 
 				delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
 				next_state.delta_w = delta_w;
@@ -2099,7 +2099,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				// Function: Obtaining the Phase Angle, and obtaining the compelx value of internal voltages and their Norton Equivalence for power flow analysis
 				for (i = 0; i < 3; i++)
 				{
-				  Angle[i] = eAngle[i].getoutput(delta_w,deltat,CORRECTOR);
+				  Angle[i] = Angle_blk[i].getoutput(delta_w,deltat,CORRECTOR);
 
 				  e_source[i] = complex(E_mag * cos(Angle[i]), E_mag * sin(Angle[i])) * V_base;	  // transfers back to non-per-unit values
 				  value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							  // Thevenin voltage source to Norton current source convertion
@@ -3349,8 +3349,8 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 				e_source_prev[i] = e_source[i];
 				
 				// inverter internal voltage angle initialization
-				eAngle[i].setparams(1.0);
-				eAngle[i].init(0,e_source[i].Arg());
+				Angle_blk[i].setparams(1.0);
+				Angle_blk[i].init(0,e_source[i].Arg());
 			}
 
 
@@ -3359,10 +3359,10 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			// We add the parameters here instead of the create
 			// function because the parameters can be set through
 			// the glm file as well.
-			QV_pi.setparams(kpv,kiv,E_min,E_max,E_min,E_max);
 
-			// Initialize the QV_pi block
-			QV_pi.init(0,(e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base);
+			// Initialize the QV controller block
+			QV_blk.setparams(kpv,kiv,E_min,E_max,E_min,E_max);
+			QV_blk.init(0,(e_source[0].Mag() + e_source[1].Mag() + e_source[2].Mag()) / 3 / V_base);
 			
 
 			//See if it is the first deltamode entry - theory is all future changes will trigger deltamode, so these should be set
@@ -3388,23 +3388,24 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 			}
 			//Default else - all changes should be in deltamode
 
-			// Initialize measured P,Q,and V
-			Pmeas.setparams(Tp);
-			Pmeas.init(0,VA_Out.Re()/S_base);
+			// Initialize P measured filter block
+			Pmeas_blk.setparams(Tp);
+			Pmeas_blk.init(0,VA_Out.Re()/S_base);
 
-			Qmeas.setparams(Tq);
-			Qmeas.init(0,VA_Out.Im()/S_base);
+			// Initialize Q measured filter block
+			Qmeas_blk.setparams(Tq);
+			Qmeas_blk.init(0,VA_Out.Im()/S_base);
 
-			// Initialize Vmeas filter block
-			Vmeas.setparams(Tv);
-			Vmeas.init(0,pCircuit_V_Avg_pu);
+			// Initialize Vmeasured filter block
+			Vmeas_blk.setparams(Tv);
+			Vmeas_blk.init(0,pCircuit_V_Avg_pu);
 
 			// Initialize Pmax and Pmin controller
-			Pminfreq.setparams(kppmax,kipmax,0.0,w_lim,0.0,w_lim);
-			Pmaxfreq.setparams(kppmax,kipmax,-w_lim,0.0,-w_lim,0.0);
+			Pminfreq_blk.setparams(kppmax,kipmax,0.0,w_lim,0.0,w_lim);
+			Pmaxfreq_blk.setparams(kppmax,kipmax,-w_lim,0.0,-w_lim,0.0);
 			  
-			Pminfreq.init(0.0,0.0);
-			Pmaxfreq.init(0.0,0.0);
+			Pminfreq_blk.init(0.0,0.0);
+			Pmaxfreq_blk.init(0.0,0.0);
 
 			// Initialize Vdc_min controller and DC bus voltage
 			if (grid_forming_mode == DYNAMIC_DC_BUS) // consider the dynamics of PV dc bus, and the internal voltage magnitude needs to be recalculated

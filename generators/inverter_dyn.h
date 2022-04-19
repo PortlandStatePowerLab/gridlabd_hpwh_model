@@ -247,13 +247,13 @@ public:
 
 	// Grid forming control blocks
 
-	PIControl QV_pi; // QV PI control block
-	Filter    Qmeas; // Q-measurement filter block
-	Filter    Vmeas; // V-measurement filter block
-	Filter    Pmeas; // P-measurement filter block
-	PIControl Pminfreq; // Frequency controller for Pmin (replaces delta_w_Pmin_ini)
-	PIControl Pmaxfreq; // Frequency controller for Pmax (replaces delta_w_Pmax_ini)
-	Integrator eAngle[3]; // Integrator block for internal source angle for the three phases
+	PIControl  QV_blk; // QV PI control block
+	Filter     Qmeas_blk; // Q-measurement filter block
+	Filter     Vmeas_blk; // V-measurement filter block
+	Filter     Pmeas_blk; // P-measurement filter block
+	PIControl  Pminfreq_blk; // Frequency controller for Pmin (replaces delta_w_Pmin_ini)
+	PIControl  Pmaxfreq_blk; // Frequency controller for Pmax (replaces delta_w_Pmax_ini)
+	Integrator Angle_blk[3]; // Integrator block for internal source angle for the three phases
 
 	double delta_w_droop; // delta mega from P-f droop
 	double delta_w_Pmax;  //
