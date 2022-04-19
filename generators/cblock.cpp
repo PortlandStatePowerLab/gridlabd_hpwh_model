@@ -186,3 +186,22 @@ void Filter::setparams(double T,double xmin,double xmax,double ymin,double ymax)
   setxlimits(xmin,xmax);
   setylimits(ymin,ymax);
 }
+
+// ------------------------------------
+// Integrator
+// ------------------------------------
+
+Integrator::Integrator(void)
+{
+  double a[2],b[2];
+
+  b[0] = 0.0;
+  b[1] = 1.0;
+  a[0] = 1.0;
+  a[1] = 0.0;
+
+  setcoeffs(a,b);
+  setxlimits(-1000.0,1000.0);
+  setylimits(-1000.0,1000.0);
+}
+

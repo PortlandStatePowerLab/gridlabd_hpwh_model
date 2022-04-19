@@ -221,4 +221,32 @@ class Filter: public Cblock
   void setparams(double T,double xmin,double xmax,double ymin,double ymax);
 };
 
+/*
+  Integrator block:
+  input  : u 
+  output : y
+  state  : x
+                         
+                           
+        -------------      
+        |    1      |     
+  u ----| -------   |----------- y
+        |    s      |    
+        -------------   
+             
+              
+   Differential equation:
+       dx_dt = u
+
+   Output:
+    y = x
+
+*/
+class Integrator: public Cblock
+{
+ public:
+  Integrator();
+};
+
+
 #endif
