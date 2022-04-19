@@ -10,8 +10,10 @@
 #include <math.h>
 #include <algorithm>
 
-/*
-  DeltaModeStage - Stage in Delta mode
+/**
+  DELTAMODESTAGE - Stage in Delta mode calculation
+
+  Enum to specify delta mode calculation stage.
 */
 typedef enum {
   PREDICTOR, // Predictor update
@@ -58,34 +60,11 @@ typedef enum {
 
   here u,x,y \in R^1 
 
-  A = -a1/a0, B = b1 - a1b0, C = 1, D = b0/a0
+  A = -a1/a0, B = (b1 - a1b0)/a0, C = 1, D = b0/a0
 
   Output:
    y = Cx + D*u,  ymin <= y <= ymax
 
-  State-update:
-    PREDICTOR (Forward Euler):
-
-    \hat{x}_{n+1} = x_{n} + dt*dx_dt(x_{n},u_{n})
-
-    \hat{x}_{n+1} = max(xmin,min(\hat{x}_{n+1},xmax)
-
-    y_{n+1} = C\hat{x}_{n+1} + Du_{n}
-
-    y_{n+1} = max(ymin,min(y_{n+1},ymax)
-
-    CORRECTOR (Trapezoidal):
-
-    x_{n+1} = x_{n} + 0.5*dt*(dx_dt(x_{n}) + dx_dt(\hat{x}_{n+1},u_{n+1})) 
-
-    x_{n+1} = max(xmin,min(x_{n+1},xmax)
-
-    y_{n+1} = Cx_{n+1} + Du_{n+1}
-
-    y_{n+1} = max(ymin,min(y_{n+1},ymax)
-
-    Note here that GridLab-D does a network solve after every predictor/corrector
-    call. So, during the corrector stage the input u is updated (u_{n+1})
 */ 
 class Cblock
 {
@@ -105,13 +84,77 @@ class Cblock
   double p_xmax,p_xmin; /* Max./Min. limits on state X */
   double p_ymax,p_ymin; /* Max./Min. limits on output Y */
 
-  // Method for updating state x
-  double updatestate(double u, double dt,double xmin, double xmax, DeltaModeStage stage);
+  /**
+     UPDATESTATE - Updates the linear control block state variable
 
-  // Method for updating state x
+     Inputs:
+       u               Input to the control block
+       dt              Integration time-step
+       DeltaModeStage  Stage of delta mode calculation, PREDICTOR or CORRECTOR
+
+     Output:
+       x               Control state variable
+                         x = \hat{x}_{n+1} for PREDICTOR stage
+			 x = x_{n+1}       for CORRECTOR stage
+
+     Note: State update calculation
+       PREDICTOR (Forward Euler):
+
+         \hat{x}_{n+1} = x_{n} + dt*dx_dt(x_{n},u_{n})
+
+       CORRECTOR (Trapezoidal):
+
+         x_{n+1} = x_{n} + 0.5*dt*(dx_dt(x_{n}) + dx_dt(\hat{x}_{n+1},u_{n+1}))
+
+
+    Note here that GridLab-D does a network solve after every predictor/corrector
+    call. So, during the corrector stage the input u is updated (u_{n+1}) 
+  **/
   double updatestate(double u, double dt,DeltaModeStage stage);
 
-  // Method for calculating the derivative xdot
+  /**
+     UPDATESTATE - Update linear control block state variable enforcing limits
+
+     Inputs:
+       u               Input to the control block
+       dt              Integration time-step
+       xmin            Min. limiter for state x
+       xmax            Max. limiter for state x
+       DeltaModeStage  Stage of delta mode calculation, PREDICTOR or CORRECTOR
+
+     Output:
+       x               Control state variable
+                         x = \hat{x}_{n+1} for PREDICTOR stage
+			 x = x_{n+1}       for CORRECTOR stage
+
+     Note: State update calculation
+       PREDICTOR (Forward Euler):
+
+         \hat{x}_{n+1} = x_{n} + dt*dx_dt(x_{n},u_{n})
+
+	 \hat{x}_{n+1} = max(xmin,min(\hat{x}_{n+1},xmax)
+
+       CORRECTOR (Trapezoidal):
+
+         x_{n+1} = x_{n} + 0.5*dt*(dx_dt(x_{n}) + dx_dt(\hat{x}_{n+1},u_{n+1})) 
+
+	 x_{n+1} = max(xmin,min(x_{n+1},xmax)
+
+    Note here that GridLab-D does a network solve after every predictor/corrector
+    call. So, during the corrector stage the input u is updated (u_{n+1}) 
+  **/
+  double updatestate(double u, double dt,double xmin, double xmax, DeltaModeStage stage);
+
+  /**
+     GETDERIVATIVE - Returns the time derivative of the linear control block state variable
+
+     Inputs:
+       x          State variable
+       u          Control block input
+
+     Outputs:
+       dx_dt      State derivative
+  **/
   double getderivative(double x,double u);
 
  public:
@@ -121,25 +164,119 @@ class Cblock
   // PADDR() method
   double x[1];      /* State variable x */
 
-  // Method for setting state-space model coefficients
+  /**
+     SETCOEFFS - Sets the coefficients a,b for the control block transfer function
+
+     Inputs:
+       a           An array of size 2,[a0,a1] for setting coefficients for the denominator
+       b           An array of size 2,[b0,b1] for setting coefficients for the numerator
+
+     Notes:
+       The transfer function for the linear control block is expressed in the form
+       Y(s)   b0*s + b1
+       --- = -----------
+       U(s)   a0*s + a1
+
+       The user is expected to provide the coefficients for the transfer function in arrays a and b
+
+       As an example, let's assume the transfer function is (2s + 3)/(s + 2), then the arrays a and b
+       passed to setcoeffs would be a = [1,2] and b = [2,3]
+  **/
   void setcoeffs(double *a,double *b);
 
-  // Method for setting x limits
+
+  /**
+     SETXLIMITS - Sets limits for the state variable x
+
+     Inputs:
+       xmin          Min. limit for x
+       xmax          Max. limit for x
+  **/
   void setxlimits(double xmin, double xmax);
 
-  // Method for setting y limits
+  /**
+     SETYLIMITS - Sets limits for output y
+
+     Inputs:
+       ymin          Min. limit for y
+       ymax          Max. limit for y
+  **/
   void setylimits(double ymin, double ymax);
 
-  // Method for initializing state x given input u and output y
+  /**
+     INIT - Initializes the control block - calculates x[0]
+
+     Inputs:
+       u           Control block input u (u[0])
+       y           Control block (expected) output y (y[0])
+  **/
   void init(double u, double y);
 
-  // Method for getting the output
+  /**
+     GETOUPUT - Returns output y of the control block
+
+     Inputs:
+       u               Input to the control block
+       dt              Integration time-step
+       DeltaModeStage  Stage of delta mode calculation, PREDICTOR or CORRECTOR
+
+     Output:
+       y               Control block output
+
+     Note: Output calculation
+       PREDICTOR :
+	 y_{n+1} = C\hat{x}_{n+1} + Du_{n}
+
+       CORRECTOR :
+
+	 y_{n+1} = Cx_{n+1} + Du_{n+1}
+
+    Note here that GridLab-D does a network solve after every predictor/corrector
+    call. So, during the corrector stage the input u is updated (u_{n+1}) 
+  **/
   double getoutput(double u,double dt,DeltaModeStage stage);
 
-  // Method for getting the ouput with limits specified
+  /**
+     GETOUTPUT - Returns control block output y enforcing limits on state and output.
+
+     Inputs:
+       u               Input to the control block
+       dt              Integration time-step
+       xmin            Min. limit for state variable
+       xmax            Max. limit for state variable
+       ymin            Min. limit for output y
+       ymax            Max. limit for output y
+       DeltaModeStage  Stage of delta mode calculation, PREDICTOR or CORRECTOR
+
+     Output:
+       y               Control block output
+
+     Note: Output calculation
+       PREDICTOR :
+
+	 y_{n+1} = C\hat{x}_{n+1} + Du_{n}
+
+	 y_{n+1} = max(ymin,min(y_{n+1},ymax)
+
+       CORRECTOR :
+	 y_{n+1} = Cx_{n+1} + Du_{n+1}
+
+	 y_{n+1} = max(ymin,min(y_{n+1},ymax)
+
+    Note here that GridLab-D does a network solve after every predictor/corrector
+    call. So, during the corrector stage the input u is updated (u_{n+1}) 
+  **/
   double getoutput(double u,double dt,double xmin, double xmax, double ymin, double ymax, DeltaModeStage stage);
 
-  // Method for getting state x
+  /**
+     GETSTATE - Returns the internal state variable x for the control block
+
+     Input:
+       stage          Stage of delta mode calculation, PREDICTOR or CORRECTOR
+
+     Output:
+       x              Control block state variable
+  **/
   double getstate(DeltaModeStage stage);
 
   ~Cblock(void);
@@ -177,8 +314,26 @@ class PIControl: public Cblock
  public:
   PIControl();
 
-  // Methods for setting parameters
+  /**
+     SETPARAMS - Set the PI controller gains
+
+     INPUTS:
+       Kp         Proportional gain
+       Ki         Integral gain
+  **/
   void setparams(double Kp, double Ki);
+
+  /**
+     SETPARAMS - Set the PI controller gains and limits
+
+     INPUTS:
+       Kp         Proportional gain
+       Ki         Integral gain
+       xmin       Min. limit for state variable
+       xmax       Max. limit for state variable
+       ymin       Min. limit for output y
+       ymax       Max. limit for output y
+  **/
   void setparams(double Kp, double Ki,double xmin,double xmax,double ymin,double ymax);
 };
 
@@ -216,8 +371,24 @@ class Filter: public Cblock
   Filter(double T);
   Filter(double T, double xmin, double xmax,double ymin, double ymax);
 
-  // Methods for setting parameters
+  /**
+     SETPARAMS - Set the filter time constant
+
+     INPUTS:
+       T         Filter time constant
+  **/
   void setparams(double T);
+
+  /**
+     SETPARAMS - Set the filter time constant and limits
+
+     INPUTS:
+       T          Filter time constant
+       xmin       Min. limit for state variable
+       xmax       Max. limit for state variable
+       ymin       Min. limit for output y
+       ymax       Max. limit for output y
+  **/
   void setparams(double T,double xmin,double xmax,double ymin,double ymax);
 };
 
@@ -247,6 +418,12 @@ class Integrator: public Cblock
  public:
   Integrator();
   
+  /**
+     SETPARAMS - Set the Integrator time constant
+
+     INPUTS:
+       T         Integrator time constant
+  **/
   void setparams(double T);
 };
 
