@@ -46,9 +46,9 @@ inverter_dyn::inverter_dyn(MODULE *module)
 			PT_complex, "e_source_A", PADDR(e_source[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase A",
 			PT_complex, "e_source_B", PADDR(e_source[1]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase B",
 			PT_complex, "e_source_C", PADDR(e_source[2]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal voltage of grid-forming source, phase C",
-			PT_double, "V_angle_A", PADDR(curr_state.Angle[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase A",
-			PT_double, "V_angle_B", PADDR(curr_state.Angle[1]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase B",
-			PT_double, "V_angle_C", PADDR(curr_state.Angle[2]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase C",
+			PT_double, "V_angle_A", PADDR(eAngle[0].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase A",
+			PT_double, "V_angle_B", PADDR(eAngle[1].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase B",
+			PT_double, "V_angle_C", PADDR(eAngle[2].x[0]), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: Internal angle of grid-forming source, phase C",
 
 			// 3 phase average value of terminal voltage
 			PT_double, "pCircuit_V_Avg_pu", PADDR(pCircuit_V_Avg_pu), PT_ACCESS, PA_HIDDEN, PT_DESCRIPTION, "DELTAMODE: three-phase average value of terminal voltage, per unit value",
@@ -1696,6 +1696,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 	double v_measured; // Output of voltage measurement block
 	double p_measured; // Output of active power measurement block
 	double q_measured; // Output of reactive power measurement block
+	double delta_w;    // angular velocity deviation
+	double Angle[3];   // Angle for internal voltage source (output of P-f control integrator block
 
 	//If we have a meter, reset the accumulators
 	if (parent_is_a_meter == true)
@@ -1896,7 +1898,7 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,PREDICTOR);
 				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,PREDICTOR);
 
-				pred_state.delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
+				delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
 
 				// delta_w_droop is the output of P-f droop
 				// Pset is the power set point
@@ -1920,17 +1922,18 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 						delta_w_Vdc_min = 0;
 					}
 
-					pred_state.delta_w = pred_state.delta_w + delta_w_Vdc_min; //the summation of the outputs from P-f droop, Pmax control and Pmin control, and Vdc_min control
+					delta_w += delta_w_Vdc_min;
 				}
 
-				freq = (pred_state.delta_w + w_ref) / 2.0 / PI; // The frequency from the CERTS Droop controller, Hz
+				freq = (delta_w + w_ref) / 2.0 / PI; // The frequency from the CERTS Droop controller, Hz
 
 				// Function: Obtaining the Phase Angle, and obtaining the compelx value of internal voltages and their Norton Equivalence for power flow analysis
 				for (i = 0; i < 3; i++)
 				{
-					pred_state.Angle[i] = curr_state.Angle[i] + pred_state.delta_w * deltat;							//Obtain the phase angle
-					e_source[i] = complex(E_mag * cos(pred_state.Angle[i]), E_mag * sin(pred_state.Angle[i])) * V_base; // transfers back to non-per-unit values
-					value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							// Thevenin voltage source to Norton current source convertion
+				  Angle[i] = eAngle[i].getoutput(delta_w,deltat,PREDICTOR);
+
+				  e_source[i] = complex(E_mag * cos(Angle[i]), E_mag * sin(Angle[i])) * V_base; // transfers back to non-per-unit values
+				  value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							// Thevenin voltage source to Norton current source convertion
 				}
 
 				// Angle[i] refers to the phase angle of internal voltage for each phase
@@ -2063,7 +2066,8 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 				delta_w_Pmax = Pmaxfreq.getoutput(Pmax - p_measured,deltat,CORRECTOR);
 				delta_w_Pmin = Pminfreq.getoutput(Pmin - p_measured,deltat,CORRECTOR);
 
-				next_state.delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
+				delta_w = delta_w_droop + delta_w_Pmax + delta_w_Pmin + 2.0 * PI * fset - w_ref; //the summation of the outputs from P-f droop, Pmax control and Pmin control
+				next_state.delta_w = delta_w;
 
 				// delta_w_droop is the output of P-f droop
 				// Pset is the power set point
@@ -2087,17 +2091,18 @@ SIMULATIONMODE inverter_dyn::inter_deltaupdate(unsigned int64 delta_time, unsign
 						delta_w_Vdc_min = 0;
 					}
 
-					next_state.delta_w = next_state.delta_w + delta_w_Vdc_min; //the summation of the outputs from P-f droop, Pmax control and Pmin control, and Vdc_min control
+					delta_w += delta_w_Vdc_min;
 				}
 
-				freq = (next_state.delta_w + w_ref) / 2.0 / PI; // The frequency from the CERTS droop controller, Hz
+				freq = (delta_w + w_ref) / 2.0 / PI; // The frequency from the CERTS droop controller, Hz
 
 				// Function: Obtaining the Phase Angle, and obtaining the compelx value of internal voltages and their Norton Equivalence for power flow analysis
 				for (i = 0; i < 3; i++)
 				{
-					next_state.Angle[i] = curr_state.Angle[i] + (pred_state.delta_w + next_state.delta_w) * deltat / 2.0; //Obtain the phase angle
-					e_source[i] = complex(E_mag * cos(next_state.Angle[i]), E_mag * sin(next_state.Angle[i])) * V_base;	  // transfers back to non-per-unit values
-					value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							  // Thevenin voltage source to Norton current source convertion
+				  Angle[i] = eAngle[i].getoutput(delta_w,deltat,CORRECTOR);
+
+				  e_source[i] = complex(E_mag * cos(Angle[i]), E_mag * sin(Angle[i])) * V_base;	  // transfers back to non-per-unit values
+				  value_IGenerated[i] = e_source[i] / (complex(Rfilter, Xfilter) * Z_base);							  // Thevenin voltage source to Norton current source convertion
 
 					//Convergence check - do on internal voltage, because "reasons"
 					mag_diff_val = e_source[i].Mag() - e_source_prev[i].Mag();
@@ -3342,7 +3347,10 @@ STATUS inverter_dyn::init_dynamics(INV_DYN_STATE *curr_time)
 				// Initialize the state variables of the internal voltages
 				e_source[i] = (value_IGenerated[i] * complex(Rfilter, Xfilter) * Z_base);
 				e_source_prev[i] = e_source[i];
-				curr_time->Angle[i] = (e_source[i]).Arg(); // Obtain the inverter internal voltage phasor angle
+				
+				// inverter internal voltage angle initialization
+				eAngle[i].setparams(1.0);
+				eAngle[i].init(0,e_source[i].Arg());
 			}
 
 

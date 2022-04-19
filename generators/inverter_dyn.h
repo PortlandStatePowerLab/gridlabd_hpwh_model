@@ -28,9 +28,7 @@ typedef struct
 	double ddelta_w_Vdc_min_ini;
 	double delta_w_Vdc_min_ini;
 
-	// state variables of frequency and phase angle of the internal voltage
-	double delta_w;
-	double Angle[3];
+        double delta_w; // used only during switching to qsts convergence check
 
 	////////Grid-Following
 	// state variables in PLL
@@ -255,6 +253,7 @@ public:
 	Filter    Pmeas; // P-measurement filter block
 	PIControl Pminfreq; // Frequency controller for Pmin (replaces delta_w_Pmin_ini)
 	PIControl Pmaxfreq; // Frequency controller for Pmax (replaces delta_w_Pmax_ini)
+	Integrator eAngle[3]; // Integrator block for internal source angle for the three phases
 
 	double delta_w_droop; // delta mega from P-f droop
 	double delta_w_Pmax;  //

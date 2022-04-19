@@ -231,7 +231,7 @@ class Filter: public Cblock
         -------------      
         |    1      |     
   u ----| -------   |----------- y
-        |    s      |    
+        |   sT      |    
         -------------   
              
               
@@ -246,6 +246,8 @@ class Integrator: public Cblock
 {
  public:
   Integrator();
+  
+  void setparams(double T);
 };
 
 
